@@ -9,5 +9,8 @@
 	"require": {
 		"php": ">=5",
 		"ext-mysqli": "*"
+	},
+	"autoload": {
+		"psr-4": {"Phyrexia\\SQL\\": ""}
 	}
 }
