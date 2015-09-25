@@ -3,6 +3,7 @@
  * SQL/SimpleSQL.php
  *
  * @author Jérémy 'Jejem' Desvages <jejem@phyrexia.org>
+ * @author Frédéric Le Barzic <fred@lebarzic.fr>
  * @copyright Jérémy 'Jejem' Desvages
  * @license The MIT License (MIT)
  * @version 1.0.0
@@ -29,41 +30,34 @@ class SimpleSQL {
 		$this->sqlUser = $user;
 		$this->sqlPass = $pass;
 		$this->sqlBase = $base;
-	}
 
-	private function fatalError($msg) {
-		if (is_array($this->alertEmails) && count($this->alertEmails) > 0) {
-			foreach ($this->alertEmails as $alertEmail)
-				mail($alertEmail, '[SimpleSQL] An error occured', 'An error occured:'."\n\n".$msg, 'X-Mailer: PHP/'.phpversion());
-		}
-
-		trigger_error($msg, E_USER_ERROR);
+		mysqli_report(MYSQLI_REPORT_STRICT);
 	}
 
 	private function checkLink() {
 		if ($this->link)
 			return;
 
-		$this->link = @mysqli_connect($this->sqlHost, $this->sqlUser, $this->sqlPass);
-
-		if (! $this->link)
-			$this->fatalError('<strong>Error:</strong><br />Link to SQL server failed.<br />Please try again later.');
-
-		if (! $this->selectDB($this->sqlBase))
-			$this->fatalError('<strong>Error:</strong><br />Could not select database.<br />Please try again later.');
-
-		$this->doQuery('SET NAMES %1', 'utf8');
+		try {
+			$this->link = mysqli_connect($this->sqlHost, $this->sqlUser, $this->sqlPass);
+			$this->selectDB($this->sqlBase);
+			$this->doQuery('SET NAMES %1', 'utf8');
+		} catch (\mysqli_sql_exception $e) {
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
+		}
 	}
 
 	public function selectDB($db) {
 		$this->checkLink();
 
-		if (! @mysqli_select_db($this->link, $db))
-			return false;
+		try {
+			mysqli_select_db($this->link, $db);
+			$this->db = $db;
 
-		$this->db = $db;
-
-		return true;
+			return true;
+		} catch (\mysqli_sql_exception $e) {
+			throw new SimpleSQLException('Could not select database, please try again later.');
+		}
 	}
 
 	public function doQuery() {
@@ -75,16 +69,23 @@ class SimpleSQL {
 		$query = preg_replace_callback('/@([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'@'.$matches[1]:(is_null($args[$matches[1]])?NULL:'`'.@mysqli_real_escape_string($this->link, $args[$matches[1]]).'`')); }, $query);
 		$query = preg_replace_callback('/%([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'%'.$matches[1]:(is_null($args[$matches[1]])?NULL:'"'.@mysqli_real_escape_string($this->link, $args[$matches[1]]).'"')); }, $query);
 
-		if (is_resource($this->result)) {
-			@mysqli_free_result($this->result);
-			$this->result = false;
+		try {
+			if (is_resource($this->result)) {
+				mysqli_free_result($this->result);
+				$this->result = false;
+			}
+
+			$this->result = mysqli_query($this->link, $query);
+			if ($this->result === false) {
+				throw new SimpleSQLException(mysqli_error($this->link), mysqli_errno($this->link), null, $query);
+			}
+
+			$this->totalQueries += 1;
+
+			return $this->result;
+		} catch (\mysqli_sql_exception $e) {
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e, $query);
 		}
-
-		$this->result = @mysqli_query($this->link, $query) or $this->fatalError('<strong>Error:</strong><br />('.@mysqli_errno($this->link).') '.@mysqli_error($this->link).'<br />Query: '.$query);
-
-		$this->totalQueries += 1;
-
-		return $this->result;
 	}
 
 	public function fetchResult() {
@@ -93,7 +94,11 @@ class SimpleSQL {
 		if (! $this->result)
 			return false;
 
-		return @mysqli_fetch_assoc($this->result);
+		try {
+			return mysqli_fetch_assoc($this->result);
+		} catch (\mysqli_sql_exception $e) {
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
+		}
 	}
 
 	public function fetchAllResults() {
@@ -102,11 +107,15 @@ class SimpleSQL {
 		if (! $this->result)
 			return false;
 
-		$ret = array();
-		while ($buf = @mysqli_fetch_assoc($this->result))
-			$ret[] = $buf;
+		try {
+			$ret = array();
+			while ($buf = mysqli_fetch_assoc($this->result))
+				$ret[] = $buf;
 
-		return $ret;
+			return $ret;
+		} catch (\mysqli_sql_exception $e) {
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
+		}
 	}
 
 	public function numRows() {
@@ -115,16 +124,28 @@ class SimpleSQL {
 		if (! $this->result)
 			return false;
 
-		return @mysqli_num_rows($this->result);
+		try {
+			return mysqli_num_rows($this->result);
+		} catch (\mysqli_sql_exception $e) {
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
+		}
 	}
 
 	public function insertID() {
 		$this->checkLink();
 
-		return @mysqli_insert_id($this->link);
+		try {
+			return mysqli_insert_id($this->link);
+		} catch (\mysqli_sql_exception $e) {
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
+		}
 	}
 
 	public function totalQueries() {
 		return $this->totalQueries;
+	}
+
+	public function setUseException($value) {
+		$this->useException = $value;
 	}
 }
