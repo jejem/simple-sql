@@ -3,13 +3,12 @@
  * SQL/SimpleSQLException.php
  *
  * @author Frédéric Le Barzic <fred@lebarzic.fr>
- * @copyright Frédéric Le Barzic
+ * @copyright Jérémy 'Jejem' Desvages
  * @license The MIT License (MIT)
  * @version 1.0.0
  **/
 
 namespace Phyrexia\SQL;
-
 
 class SimpleSQLException extends \Exception
 {

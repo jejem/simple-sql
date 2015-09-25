@@ -3,6 +3,7 @@
  * SQL/SimpleSQL.php
  *
  * @author Jérémy 'Jejem' Desvages <jejem@phyrexia.org>
+ * @author Frédéric Le Barzic <fred@lebarzic.fr>
  * @copyright Jérémy 'Jejem' Desvages
  * @license The MIT License (MIT)
  * @version 1.0.0
@@ -16,7 +17,6 @@ class SimpleSQL {
 	private $link = false;
 	private $db = NULL;
 	private $result = false;
-	private $useException = true;
 
 	public $sqlHost;
 	public $sqlUser;
@@ -34,15 +34,6 @@ class SimpleSQL {
 		mysqli_report(MYSQLI_REPORT_STRICT);
 	}
 
-	private function fatalError($msg) {
-		if (is_array($this->alertEmails) && count($this->alertEmails) > 0) {
-			foreach ($this->alertEmails as $alertEmail)
-				mail($alertEmail, '[SimpleSQL] An error occured', 'An error occured:'."\n\n".$msg, 'X-Mailer: PHP/'.phpversion());
-		}
-
-		trigger_error($msg, E_USER_ERROR);
-	}
-
 	private function checkLink() {
 		if ($this->link)
 			return;
@@ -52,18 +43,7 @@ class SimpleSQL {
 			$this->selectDB($this->sqlBase);
 			$this->doQuery('SET NAMES %1', 'utf8');
 		} catch (\mysqli_sql_exception $e) {
-			if ($this->useException) {
-				throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
-			}
-
-			$this->fatalError('<strong>Error:</strong><br />Link to SQL server failed.<br />Please try again later.');
-			return false;
-		}  catch (SimpleSQLException $e) {
-			if ($this->useException) {
-				throw new $e;
-			}
-
-			$this->fatalError('<strong>Error:</strong><br />Could not select database.<br />Please try again later.');
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
@@ -97,22 +77,14 @@ class SimpleSQL {
 
 			$this->result = mysqli_query($this->link, $query);
 			if ($this->result === false) {
-				if ($this->useException) {
-					throw new SimpleSQLException(mysqli_error($this->link), mysqli_errno($this->link), null, $query);
-				}
-
-				$this->fatalError('<strong>Error:</strong><br />('.mysqli_errno($this->link).') '.mysqli_error($this->link).'<br />Query: '.$query);
+				throw new SimpleSQLException(mysqli_error($this->link), mysqli_errno($this->link), null, $query);
 			}
 
 			$this->totalQueries += 1;
 
 			return $this->result;
 		} catch (\mysqli_sql_exception $e) {
-			if ($this->useException) {
-				throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e, $query);
-			}
-
-			$this->fatalError('<strong>Error:</strong><br />(' . $e->getCode() . ') ' . $e->getMessage() . '<br />Query: ' . $query);
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e, $query);
 		}
 	}
 
@@ -125,11 +97,7 @@ class SimpleSQL {
 		try {
 			return mysqli_fetch_assoc($this->result);
 		} catch (\mysqli_sql_exception $e) {
-			if ($this->useException) {
-				throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
-			}
-
-			$this->fatalError('<strong>Error:</strong><br />(' . $e->getCode() . ') ' . $e->getMessage());
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
@@ -146,11 +114,7 @@ class SimpleSQL {
 
 			return $ret;
 		} catch (\mysqli_sql_exception $e) {
-			if ($this->useException) {
-				throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
-			}
-
-			$this->fatalError('<strong>Error:</strong><br />(' . $e->getCode() . ') ' . $e->getMessage());
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
@@ -163,11 +127,7 @@ class SimpleSQL {
 		try {
 			return mysqli_num_rows($this->result);
 		} catch (\mysqli_sql_exception $e) {
-			if ($this->useException) {
-				throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
-			}
-
-			$this->fatalError('<strong>Error:</strong><br />(' . $e->getCode() . ') ' . $e->getMessage());
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
@@ -177,11 +137,7 @@ class SimpleSQL {
 		try {
 			return mysqli_insert_id($this->link);
 		} catch (\mysqli_sql_exception $e) {
-			if ($this->useException) {
-				throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
-			}
-
-			$this->fatalError('<strong>Error:</strong><br />(' . $e->getCode() . ') ' . $e->getMessage());
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
