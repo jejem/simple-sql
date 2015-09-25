@@ -12,8 +12,6 @@
 namespace Phyrexia\SQL;
 
 class SimpleSQL {
-	public $alertEmails = array();
-
 	private $link = false;
 	private $db = NULL;
 	private $result = false;
@@ -42,6 +40,8 @@ class SimpleSQL {
 			$this->link = mysqli_connect($this->sqlHost, $this->sqlUser, $this->sqlPass);
 			$this->selectDB($this->sqlBase);
 			$this->doQuery('SET NAMES %1', 'utf8');
+
+			return true;
 		} catch (\mysqli_sql_exception $e) {
 			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
@@ -56,7 +56,7 @@ class SimpleSQL {
 
 			return true;
 		} catch (\mysqli_sql_exception $e) {
-			throw new SimpleSQLException('Could not select database, please try again later.');
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
@@ -76,9 +76,8 @@ class SimpleSQL {
 			}
 
 			$this->result = mysqli_query($this->link, $query);
-			if ($this->result === false) {
-				throw new SimpleSQLException(mysqli_error($this->link), mysqli_errno($this->link), null, $query);
-			}
+			if ($this->result === false)
+				throw new SimpleSQLException(mysqli_error($this->link), mysqli_errno($this->link), NULL, $query);
 
 			$this->totalQueries += 1;
 
@@ -143,9 +142,5 @@ class SimpleSQL {
 
 	public function totalQueries() {
 		return $this->totalQueries;
-	}
-
-	public function setUseException($value) {
-		$this->useException = $value;
 	}
 }
