@@ -6,7 +6,7 @@
  * @author Frédéric Le Barzic <fred@lebarzic.fr>
  * @copyright Jérémy 'Jejem' Desvages
  * @license The MIT License (MIT)
- * @version 1.0.0
+ * @version 1.1.0
 **/
 
 namespace Phyrexia\SQL;
