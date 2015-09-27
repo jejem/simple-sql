@@ -6,30 +6,40 @@
  * @author Frédéric Le Barzic <fred@lebarzic.fr>
  * @copyright Jérémy 'Jejem' Desvages
  * @license The MIT License (MIT)
- * @version 1.1.0
+ * @version 1.2.0
 **/
 
 namespace Phyrexia\SQL;
 
 class SimpleSQL {
+	private static $instance;
+
 	private $link = false;
-	private $db = NULL;
 	private $result = false;
 
-	public $sqlHost;
-	public $sqlUser;
-	public $sqlPass;
-	public $sqlBase;
+	private static $sqlBase;
+	private static $sqlHost;
+	private static $sqlPort;
+	private static $sqlUser;
+	private static $sqlPass;
 
 	private $totalQueries = 0;
 
-	public function __construct($host=NULL, $user=NULL, $pass=NULL, $base=NULL) {
-		$this->sqlHost = $host;
-		$this->sqlUser = $user;
-		$this->sqlPass = $pass;
-		$this->sqlBase = $base;
+	private function __construct($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
+		self::$sqlBase = $base;
+		self::$sqlHost = $host;
+		self::$sqlPort = $port;
+		self::$sqlUser = $user;
+		self::$sqlPass = $pass;
 
 		mysqli_report(MYSQLI_REPORT_STRICT);
+	}
+
+	public static function getInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
+		if (is_null(self::$instance) || (! is_null($base) && $base != self::$sqlBase) || (! is_null($host) && $host != self::$sqlHost) || (! is_null($port) && $port != self::$sqlPort) || (! is_null($user) && $user != self::$sqlUser) || (! is_null($pass) && $pass != self::$sqlPass))
+			self::$instance = new SimpleSQL($base, $host, $port, $user, $pass);
+
+		return self::$instance;
 	}
 
 	private function checkLink() {
@@ -37,22 +47,8 @@ class SimpleSQL {
 			return;
 
 		try {
-			$this->link = mysqli_connect($this->sqlHost, $this->sqlUser, $this->sqlPass);
-			$this->selectDB($this->sqlBase);
+			$this->link = mysqli_connect(self::$sqlHost, self::$sqlUser, self::$sqlPass, self::$sqlBase, self::$sqlPort);
 			$this->doQuery('SET NAMES %1', 'utf8');
-
-			return true;
-		} catch (\mysqli_sql_exception $e) {
-			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
-		}
-	}
-
-	public function selectDB($db) {
-		$this->checkLink();
-
-		try {
-			mysqli_select_db($this->link, $db);
-			$this->db = $db;
 
 			return true;
 		} catch (\mysqli_sql_exception $e) {
