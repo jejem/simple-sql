@@ -56,6 +56,12 @@ class SimpleSQL {
 		}
 	}
 
+	public function getLink() {
+		$this->checkLink();
+
+		return $this->link;
+	}
+
 	public function doQuery() {
 		$this->checkLink();
 
