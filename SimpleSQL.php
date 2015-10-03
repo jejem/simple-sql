@@ -17,26 +17,26 @@ class SimpleSQL {
 	private $link = false;
 	private $result = false;
 
-	private $base;
-	private $host;
-	private $port;
-	private $user;
-	private $pass;
+	private static $base;
+	private static $host;
+	private static $port;
+	private static $user;
+	private static $pass;
 
 	private $totalQueries = 0;
 
 	private function __construct($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
-		$this->base = $base;
-		$this->host = $host;
-		$this->port = $port;
-		$this->user = $user;
-		$this->pass = $pass;
+		self::$base = $base;
+		self::$host = $host;
+		self::$port = $port;
+		self::$user = $user;
+		self::$pass = $pass;
 
 		mysqli_report(MYSQLI_REPORT_STRICT);
 	}
 
 	public static function getInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
-		if (is_null(self::$instance) || (! is_null($base) && $base != $this->base) || (! is_null($host) && $host != $this->host) || (! is_null($port) && $port != $this->port) || (! is_null($user) && $user != $this->user) || (! is_null($pass) && $pass != $this->pass))
+		if (is_null(self::$instance) || (! is_null($base) && $base != self::$base) || (! is_null($host) && $host != self::$host) || (! is_null($port) && $port != self::$port) || (! is_null($user) && $user != self::$user) || (! is_null($pass) && $pass != self::$pass))
 			self::$instance = new SimpleSQL($base, $host, $port, $user, $pass);
 
 		return self::$instance;
@@ -47,7 +47,7 @@ class SimpleSQL {
 			return;
 
 		try {
-			$this->link = mysqli_connect($this->host, $this->user, $this->pass, $this->base, $this->port);
+			$this->link = mysqli_connect(self::$host, self::$user, self::$pass, self::$base, self::$port);
 			$this->doQuery('SET NAMES %1', 'utf8');
 
 			return true;
