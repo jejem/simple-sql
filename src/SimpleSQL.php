@@ -96,7 +96,7 @@ class SimpleSQL {
 	}
 
 	public function getLink() {
-		if (array_key_exists($this->currentLinkType, $this->links) && is_a($this->links[$this->currentLinkType], 'mysqli')) {
+		if (array_key_exists($this->currentLinkType, $this->links) && $this->links[$this->currentLinkType] instanceof \mysqli) {
 			return $this->links[$this->currentLinkType];
 		}
 
