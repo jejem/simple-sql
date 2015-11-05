@@ -12,74 +12,114 @@
 namespace Phyrexia\SQL;
 
 class SimpleSQL {
+	const LINK_TYPE_MASTER = 'master';
+	const LINK_TYPE_SLAVE = 'slave';
+
 	private static $instance;
 
-	private $link = false;
+	private $master = array();
+	private $slaves = array();
 	private $result = false;
-
-	private static $base;
-	private static $host;
-	private static $port;
-	private static $user;
-	private static $pass;
+	private $links = array();
+	private $currentLinkType = null;
+	private $forceMaster = false;
 
 	private $totalQueries = 0;
 
 	private function __construct($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
-		self::$base = $base;
-		self::$host = $host;
-		self::$port = $port;
-		self::$user = $user;
-		self::$pass = $pass;
+		$this->addLink(self::LINK_TYPE_MASTER, $base, $host, $port, $user, $pass);
 
 		mysqli_report(MYSQLI_REPORT_STRICT);
 	}
 
 	public static function getInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
-		if (is_null(self::$instance) || (! is_null($base) && $base != self::$base) || (! is_null($host) && $host != self::$host) || (! is_null($port) && $port != self::$port) || (! is_null($user) && $user != self::$user) || (! is_null($pass) && $pass != self::$pass))
+		if (is_null(self::$instance))
 			self::$instance = new SimpleSQL($base, $host, $port, $user, $pass);
 
 		return self::$instance;
 	}
 
-	private function checkLink() {
-		if ($this->link)
-			return;
+	public function addLink($type, $base, $host, $port, $user, $pass) {
+		$config = compact('base', 'host', 'port', 'user', 'pass');
+		if ($type == self::LINK_TYPE_MASTER) {
+			$this->master = $config;
+		} elseif ($type == self::LINK_TYPE_SLAVE) {
+			array_push($this->slaves, $config);
+		} else {
+			throw new SimpleSQLException('This type of link is incorrect');
+		}
+	}
+
+	private function autoSelectLinkType($query = null) {
+		$type = self::LINK_TYPE_MASTER;
+		if ($this->forceMaster) {
+			return self::LINK_TYPE_MASTER;
+		} elseif (is_string($query) && $query != '' && preg_match('/^SELECT/im', $query)) {
+			$type = self::LINK_TYPE_SLAVE;
+			if (!is_array($this->slaves) || count($this->slaves) == 0) {
+				$type = self::LINK_TYPE_MASTER;
+			}
+		} elseif (is_null($query) && !is_null($this->currentLinkType)) {
+			$type = $this->currentLinkType;
+		}
+
+		return $type;
+	}
+
+	private function checkLink($query = null) {
+		$this->currentLinkType = $this->autoSelectLinkType($query);
+		if ($this->getLink()) {
+			return true;
+		}
+
+		$config = $this->master;
+		if ($this->currentLinkType == self::LINK_TYPE_SLAVE && is_array($this->slaves) && count($this->slaves) > 0) {
+			$rand = array_rand($this->slaves);
+			$config = $this->slaves[$rand];
+		}
 
 		try {
-			$this->link = mysqli_connect(self::$host, self::$user, self::$pass, self::$base, self::$port);
-			$this->doQuery('SET NAMES %1', 'utf8');
+			$this->links[$this->currentLinkType] = mysqli_connect($config['host'], $config['user'], $config['pass'], $config['base'], $config['port']);
+			$this->links[$this->currentLinkType]->query('SET NAMES "utf8"');
 
 			return true;
 		} catch (\mysqli_sql_exception $e) {
+			if ($this->currentLinkType == self::LINK_TYPE_SLAVE && is_array($this->slaves) && count($this->slaves) > 0) {
+				unset($this->slaves[$rand]);
+				unset($this->links[$this->currentLinkType]);
+
+				return $this->checkLink($query);
+			}
+
 			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
 	public function getLink() {
-		$this->checkLink();
+		if (array_key_exists($this->currentLinkType, $this->links) && $this->links[$this->currentLinkType] instanceof \mysqli) {
+			return $this->links[$this->currentLinkType];
+		}
 
-		return $this->link;
+		return false;
 	}
 
 	public function doQuery() {
-		$this->checkLink();
-
 		$args = func_get_args();
 
 		$query = $args[0];
-		$query = preg_replace_callback('/@([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'@'.$matches[1]:(is_null($args[$matches[1]])?NULL:'`'.@mysqli_real_escape_string($this->link, $args[$matches[1]]).'`')); }, $query);
-		$query = preg_replace_callback('/%([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'%'.$matches[1]:(is_null($args[$matches[1]])?NULL:'"'.@mysqli_real_escape_string($this->link, $args[$matches[1]]).'"')); }, $query);
+		$query = preg_replace_callback('/@([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'@'.$matches[1]:(is_null($args[$matches[1]])?NULL:'`'.@mysqli_real_escape_string($this->getLink(), $args[$matches[1]]).'`')); }, $query);
+		$query = preg_replace_callback('/%([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'%'.$matches[1]:(is_null($args[$matches[1]])?NULL:'"'.@mysqli_real_escape_string($this->getLink(), $args[$matches[1]]).'"')); }, $query);
 
+		$this->checkLink($query);
 		try {
 			if (is_resource($this->result)) {
 				mysqli_free_result($this->result);
 				$this->result = false;
 			}
 
-			$this->result = mysqli_query($this->link, $query);
+			$this->result = mysqli_query($this->getLink(), $query);
 			if ($this->result === false)
-				throw new SimpleSQLException(mysqli_error($this->link), mysqli_errno($this->link), NULL, $query);
+				throw new SimpleSQLException(mysqli_error($this->getLink()), mysqli_errno($this->getLink()), NULL, $query);
 
 			$this->totalQueries += 1;
 
@@ -87,6 +127,23 @@ class SimpleSQL {
 		} catch (\mysqli_sql_exception $e) {
 			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e, $query);
 		}
+	}
+
+	public function doQueryOnMaster() {
+		$state = $this->getForceMaster();
+		$this->setForceMaster(true);
+		$buf = call_user_func_array(array($this, 'doQuery'), func_get_args());
+		$this->setForceMaster($state);
+
+		return $buf;
+	}
+
+	public function setForceMaster($force = false) {
+		$this->forceMaster = (bool) $force;
+	}
+
+	public function getForceMaster() {
+		return $this->forceMaster;
 	}
 
 	public function fetchResult() {
