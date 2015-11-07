@@ -19,10 +19,12 @@ class SimpleSQL {
 
 	private $master = array();
 	private $slaves = array();
-	private $result = false;
 	private $links = array();
-	private $currentLinkType = null;
+
 	private $forceMaster = false;
+	private $currentLinkType;
+
+	private $result = false;
 
 	private $totalQueries = 0;
 
@@ -39,38 +41,53 @@ class SimpleSQL {
 		return self::$instance;
 	}
 
-	public function addLink($type, $base, $host, $port, $user, $pass) {
-		$config = compact('base', 'host', 'port', 'user', 'pass');
-		if ($type == self::LINK_TYPE_MASTER) {
-			$this->master = $config;
-		} elseif ($type == self::LINK_TYPE_SLAVE) {
-			array_push($this->slaves, $config);
-		} else {
-			throw new SimpleSQLException('This type of link is incorrect');
-		}
+	public function getForceMaster() {
+		return $this->forceMaster;
 	}
 
-	private function autoSelectLinkType($query = null) {
-		$type = self::LINK_TYPE_MASTER;
-		if ($this->forceMaster) {
+	public function setForceMaster($force) {
+		$this->forceMaster = (bool)$force;
+	}
+
+	public function addLink($type, $base, $host, $port, $user, $pass) {
+		if (! in_array($type, array(self::LINK_TYPE_MASTER, self::LINK_TYPE_SLAVE)))
+			throw new SimpleSQLException('Invalid or unsupported link type '.$type);
+
+		switch ($type) {
+			case self::LINK_TYPE_MASTER:
+				$this->master = compact('base', 'host', 'port', 'user', 'pass');
+				break;
+			case self::LINK_TYPE_SLAVE:
+				$this->slaves[] = compact('base', 'host', 'port', 'user', 'pass');
+				break;
+		}
+
+		return true;
+	}
+
+	private function autoSelectLinkType($query = NULL) {
+		if ($this->forceMaster)
 			return self::LINK_TYPE_MASTER;
-		} elseif (is_string($query) && $query != '' && preg_match('/^SELECT/im', $query)) {
+
+		if (is_null($query) && ! is_null($this->currentLinkType))
+			return $this->currentLinkType;
+
+		$type = self::LINK_TYPE_MASTER;
+
+		if (is_string($query) && preg_match('/^SELECT/im', $query)) {
 			$type = self::LINK_TYPE_SLAVE;
-			if (!is_array($this->slaves) || count($this->slaves) == 0) {
+			if (! is_array($this->slaves) || count($this->slaves) == 0)
 				$type = self::LINK_TYPE_MASTER;
-			}
-		} elseif (is_null($query) && !is_null($this->currentLinkType)) {
-			$type = $this->currentLinkType;
 		}
 
 		return $type;
 	}
 
-	private function checkLink($query = null) {
+	private function checkLink($query = NULL) {
 		$this->currentLinkType = $this->autoSelectLinkType($query);
-		if ($this->getLink()) {
+
+		if ($this->getLink() instanceof \mysqli)
 			return true;
-		}
 
 		$config = $this->master;
 		if ($this->currentLinkType == self::LINK_TYPE_SLAVE && is_array($this->slaves) && count($this->slaves) > 0) {
@@ -91,14 +108,13 @@ class SimpleSQL {
 				return $this->checkLink($query);
 			}
 
-			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e, $query);
 		}
 	}
 
 	public function getLink() {
-		if (array_key_exists($this->currentLinkType, $this->links) && $this->links[$this->currentLinkType] instanceof \mysqli) {
+		if (array_key_exists($this->currentLinkType, $this->links) && $this->links[$this->currentLinkType] instanceof \mysqli)
 			return $this->links[$this->currentLinkType];
-		}
 
 		return false;
 	}
@@ -139,14 +155,6 @@ class SimpleSQL {
 		$this->setForceMaster($state);
 
 		return $buf;
-	}
-
-	public function setForceMaster($force = false) {
-		$this->forceMaster = (bool) $force;
-	}
-
-	public function getForceMaster() {
-		return $this->forceMaster;
 	}
 
 	public function fetchResult() {
