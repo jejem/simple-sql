@@ -104,6 +104,8 @@ class SimpleSQL {
 	}
 
 	public function doQuery() {
+		$this->checkLink(NULL);
+
 		$args = func_get_args();
 
 		$query = $args[0];
@@ -111,6 +113,7 @@ class SimpleSQL {
 		$query = preg_replace_callback('/%([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'%'.$matches[1]:(is_null($args[$matches[1]])?NULL:'"'.@mysqli_real_escape_string($this->getLink(), $args[$matches[1]]).'"')); }, $query);
 
 		$this->checkLink($query);
+
 		try {
 			if (is_resource($this->result)) {
 				mysqli_free_result($this->result);
