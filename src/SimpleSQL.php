@@ -204,7 +204,7 @@ class SimpleSQL {
 		$this->checkLink();
 
 		try {
-			return mysqli_insert_id($this->link);
+			return mysqli_insert_id($this->getLink());
 		} catch (\mysqli_sql_exception $e) {
 			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
