@@ -124,6 +124,9 @@ class SimpleSQL {
 
 		$args = func_get_args();
 
+		if (count($args) == 2 && is_string($args[0]) && is_array($args[1]))
+			$buf = array_merge(array($args[0]), $args[1]);
+
 		$query = $args[0];
 		$query = preg_replace_callback('/@([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'@'.$matches[1]:(is_null($args[$matches[1]])?NULL:'`'.@mysqli_real_escape_string($this->getLink(), $args[$matches[1]]).'`')); }, $query);
 		$query = preg_replace_callback('/%([0-9]+)/s', function($matches) use ($args) { return ((! array_key_exists($matches[1], $args))?'%'.$matches[1]:(is_null($args[$matches[1]])?NULL:'"'.@mysqli_real_escape_string($this->getLink(), $args[$matches[1]]).'"')); }, $query);
