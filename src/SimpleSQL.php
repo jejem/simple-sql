@@ -36,9 +36,13 @@ class SimpleSQL {
 
 	public static function getInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
 		if (is_null(self::$instance) || ! is_null($base) || ! is_null($host) || ! is_null($port) || ! is_null($user) || ! is_null($pass))
-			self::$instance = new SimpleSQL($base, $host, $port, $user, $pass);
+			self::$instance = self::newInstance($base, $host, $port, $user, $pass);
 
 		return self::$instance;
+	}
+
+	public static function newInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
+		return new SimpleSQL($base, $host, $port, $user, $pass);
 	}
 
 	public function getForceMaster() {
