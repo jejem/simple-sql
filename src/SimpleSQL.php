@@ -45,6 +45,15 @@ class SimpleSQL {
 		return new SimpleSQL($base, $host, $port, $user, $pass);
 	}
 
+	public function close() {
+		$thread_id = mysqli_thread_id($this->getLink());
+		if ($thread_id !== false) {
+			mysqli_kill($this->getLink(), $thread_id);
+		}
+		@mysqli_close($this->getLink());
+		unset($this->links[$this->currentLinkType]);
+	}
+
 	public function getForceMaster() {
 		return $this->forceMaster;
 	}
