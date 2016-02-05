@@ -46,12 +46,19 @@ class SimpleSQL {
 	}
 
 	public function close() {
-		$thread_id = mysqli_thread_id($this->getLink());
-		if ($thread_id !== false) {
-			mysqli_kill($this->getLink(), $thread_id);
+		foreach (array(self::LINK_TYPE_SLAVE, self::LINK_TYPE_MASTER) as $type) {
+			if (array_key_exists($type, $this->links) && $this->links[$type] instanceof \mysqli) {
+				$tid = mysqli_thread_id($this->links[$type]);
+				if ($tid !== false)
+					mysqli_kill($this->links[$type], $tid);
+
+				mysqli_close($this->links[$type]);
+
+				unset($this->links[$type]);
+			}
 		}
-		@mysqli_close($this->getLink());
-		unset($this->links[$this->currentLinkType]);
+
+		$this->links = array();
 	}
 
 	public function getForceMaster() {
