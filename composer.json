@@ -8,7 +8,7 @@
 		{"name": "Frédéric Le Barzic", "email": "fred@lebarzic.fr"}
 	],
 	"license": "MIT",
-	"version": "1.6.0",
+	"version": "1.6.1",
 	"require": {
 		"php": ">=5.3",
 		"ext-mysqli": "*"
