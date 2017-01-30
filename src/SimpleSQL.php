@@ -187,28 +187,36 @@ class SimpleSQL {
 		return $buf;
 	}
 
-	public function fetchResult() {
+	public function fetchResult($result = NULL) {
 		$this->checkLink();
 
-		if (! $this->result)
+		$r = $this->result;
+		if (! is_null($result) && is_resource($result))
+			$r = $result;
+
+		if (! $r)
 			return false;
 
 		try {
-			return mysqli_fetch_assoc($this->result);
+			return mysqli_fetch_assoc($r);
 		} catch (\mysqli_sql_exception $e) {
 			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function fetchAllResults() {
+	public function fetchAllResults($result = NULL) {
 		$this->checkLink();
 
-		if (! $this->result)
+		$r = $this->result;
+		if (! is_null($result) && is_resource($result))
+			$r = $result;
+
+		if (! $r)
 			return false;
 
 		try {
 			$ret = array();
-			while ($buf = mysqli_fetch_assoc($this->result))
+			while ($buf = mysqli_fetch_assoc($r))
 				$ret[] = $buf;
 
 			return $ret;
@@ -217,14 +225,18 @@ class SimpleSQL {
 		}
 	}
 
-	public function numRows() {
+	public function numRows($result = NULL) {
 		$this->checkLink();
 
-		if (! $this->result)
+		$r = $this->result;
+		if (! is_null($result) && is_resource($result))
+			$r = $result;
+
+		if (! $r)
 			return false;
 
 		try {
-			return mysqli_num_rows($this->result);
+			return mysqli_num_rows($r);
 		} catch (\mysqli_sql_exception $e) {
 			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
 		}
