@@ -242,6 +242,16 @@ class SimpleSQL {
 		}
 	}
 
+	public function affectedRows() {
+		$this->checkLink();
+
+		try {
+			return mysqli_affected_rows($this->getLink());
+		} catch (\mysqli_sql_exception $e) {
+			throw new SimpleSQLException($e->getMessage(), $e->getCode(), $e);
+		}
+	}
+
 	public function insertID() {
 		$this->checkLink();
 
