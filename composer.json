@@ -13,6 +13,9 @@
 		"php": ">=5.3",
 		"ext-mysqli": "*"
 	},
+	"suggest": {
+		"phyrexia/orm": "PHP class for an easy to use ORM"
+	},
 	"autoload": {
 		"psr-4": {"Phyrexia\\SQL\\": "src/"}
 	}
