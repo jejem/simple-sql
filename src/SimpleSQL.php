@@ -27,21 +27,21 @@ class SimpleSQL {
 
 	private $totalQueries = 0;
 
-	private function __construct($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
-		$this->addLink(self::LINK_TYPE_MASTER, $base, $host, $port, $user, $pass);
+	private function __construct($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL, $charset = 'utf8', $collate = 'utf8_unicode_ci') {
+		$this->addLink(self::LINK_TYPE_MASTER, $base, $host, $port, $user, $pass, $charset, $collate);
 
 		mysqli_report(MYSQLI_REPORT_STRICT);
 	}
 
-	public static function getInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
+	public static function getInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL, $charset = 'utf8', $collate = 'utf8_unicode_ci') {
 		if (is_null(self::$instance) || ! is_null($base) || ! is_null($host) || ! is_null($port) || ! is_null($user) || ! is_null($pass))
-			self::$instance = self::newInstance($base, $host, $port, $user, $pass);
+			self::$instance = self::newInstance($base, $host, $port, $user, $pass, $charset, $collate);
 
 		return self::$instance;
 	}
 
-	public static function newInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL) {
-		return new SimpleSQL($base, $host, $port, $user, $pass);
+	public static function newInstance($base = NULL, $host = NULL, $port = NULL, $user = NULL, $pass = NULL, $charset = 'utf8', $collate = 'utf8_unicode_ci') {
+		return new SimpleSQL($base, $host, $port, $user, $pass, $charset, $collate);
 	}
 
 	public function close() {
@@ -68,16 +68,16 @@ class SimpleSQL {
 		$this->forceMaster = (bool)$force;
 	}
 
-	public function addLink($type, $base, $host, $port, $user, $pass) {
+	public function addLink($type, $base, $host, $port, $user, $pass, $charset, $collate) {
 		if (! in_array($type, array(self::LINK_TYPE_MASTER, self::LINK_TYPE_SLAVE)))
 			throw new SimpleSQLException('Invalid or unsupported link type '.$type);
 
 		switch ($type) {
 			case self::LINK_TYPE_MASTER:
-				$this->master = compact('base', 'host', 'port', 'user', 'pass');
+				$this->master = compact('base', 'host', 'port', 'user', 'pass', 'charset', 'collate');
 				break;
 			case self::LINK_TYPE_SLAVE:
-				$this->slaves[] = compact('base', 'host', 'port', 'user', 'pass');
+				$this->slaves[] = compact('base', 'host', 'port', 'user', 'pass', 'charset', 'collate');
 				break;
 		}
 
@@ -116,7 +116,7 @@ class SimpleSQL {
 
 		try {
 			$this->links[$this->currentLinkType] = mysqli_connect($config['host'], $config['user'], $config['pass'], $config['base'], $config['port']);
-			$this->links[$this->currentLinkType]->query('SET NAMES "utf8"');
+			$this->links[$this->currentLinkType]->query('SET NAMES "' . $config['charset'] . '"');
 
 			return true;
 		} catch (\mysqli_sql_exception $e) {
